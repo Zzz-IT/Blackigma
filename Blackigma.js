@@ -51,7 +51,6 @@ const ENABLE_LOG = false;
 const CONNECT_DATA_TIMEOUT_MS = 1200;
 const MAX_PACKET_SIZE = 8 * 1024 * 1024;
 
-// 控制台中可切换的入口地址
 const SERVER_PRESETS = [
   { name: '默认入口', host: '__WORKER_DOMAIN__' },
   { name: 'Ubisoft', host: 'store.ubi.com' },
@@ -121,7 +120,7 @@ function isValidUUID(uuid) {
 
 function safeCloseWebSocket(ws) {
   try {
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CLOSING) {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CLOSING)) {
       ws.close();
     }
   } catch {}
@@ -491,12 +490,12 @@ function getHomePage() {
       <span id="typewriter"></span><span class="cursor">|</span>
     </h1>
     <p style="margin-bottom:18px;">输入 UUID 进入控制台。</p>
-    <input type="password" id="pw" placeholder="输入 UUID" autocomplete="off">
-    <button class="main-btn" id="enterBtn">验证身份</button>
+    <input type="password" id="pw" placeholder="请输入 UUID" autocomplete="off">
+    <button class="main-btn" id="enterBtn">验证并进入</button>
     <div class="notice">提示：请输入完整 UUID，例如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</div>
 
     <script>
-      const txt = ["Here's Blackigma.", "Maybe Eternal？", "Hello world!"];
+      const txt = ["欢迎来到 Blackigma。", "安全边缘节点。", "VLESS 控制台。"];
       let i = 0, j = 0, cur = "";
 
       function type() {
@@ -524,7 +523,7 @@ function getHomePage() {
         const value = document.getElementById('pw').value.trim();
         const ok = /^[0-9a-fA-F-]{36}$/.test(value);
         if (!ok) {
-          alert('UUID 格式错误');
+          alert('UUID 格式看起来不正确');
           return;
         }
         location.href = '/' + value;
@@ -742,22 +741,27 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
   let isFirstPacket = true;
   let closed = false;
   let currentPipeAbort = null;
+  let activeConnectionId = 0;
 
   async function cleanup() {
     if (closed) return;
     closed = true;
+    activeConnectionId++;
+
     if (currentPipeAbort) {
       try {
         currentPipeAbort.abort();
       } catch {}
     }
+
     await safeCloseSocket(activeTcpSocket);
+    activeTcpSocket = null;
     safeCloseWebSocket(webSocket);
   }
 
   async function connectAndPipe(host, port, rawClientData) {
     let socket = null;
-    let firstChunkPromiseResolve;
+    let firstChunkPromiseResolve = null;
     let firstChunkPromiseDone = false;
 
     const firstChunkPromise = new Promise(resolve => {
@@ -766,6 +770,8 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
 
     const abortController = new AbortController();
     currentPipeAbort = abortController;
+
+    const connectionId = ++activeConnectionId;
 
     try {
       socket = connect({ hostname: host, port });
@@ -785,12 +791,17 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
           async write(chunk) {
             if (!firstChunkPromiseDone) {
               firstChunkPromiseDone = true;
-              firstChunkPromiseResolve(true);
+              if (firstChunkPromiseResolve) {
+                firstChunkPromiseResolve(true);
+              }
             }
 
             if (closed) return;
+            if (connectionId !== activeConnectionId) return;
+            if (activeTcpSocket !== socket) return;
+            if (webSocket.readyState !== WebSocket.OPEN) return;
 
-            if (webSocket.readyState === WebSocket.OPEN) {
+            try {
               if (vlessResponseHeader) {
                 const merged = concatBytes(vlessResponseHeader, new Uint8Array(chunk));
                 webSocket.send(merged.buffer);
@@ -798,18 +809,24 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
               } else {
                 webSocket.send(chunk);
               }
+            } catch {
+              await cleanup();
             }
           },
           async close() {
             if (!firstChunkPromiseDone) {
               firstChunkPromiseDone = true;
-              firstChunkPromiseResolve(false);
+              if (firstChunkPromiseResolve) {
+                firstChunkPromiseResolve(false);
+              }
             }
           },
           async abort() {
             if (!firstChunkPromiseDone) {
               firstChunkPromiseDone = true;
-              firstChunkPromiseResolve(false);
+              if (firstChunkPromiseResolve) {
+                firstChunkPromiseResolve(false);
+              }
             }
           }
         }),
@@ -822,6 +839,14 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
       ]);
 
       if (!result) {
+        if (connectionId === activeConnectionId) {
+          activeConnectionId++;
+        }
+
+        try {
+          abortController.abort();
+        } catch {}
+
         await safeCloseSocket(socket);
         if (activeTcpSocket === socket) {
           activeTcpSocket = null;
@@ -830,12 +855,23 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
       }
 
       return true;
-    } catch (err) {
-      await safeCloseSocket(socket);
+    } catch {
       if (!firstChunkPromiseDone) {
         firstChunkPromiseDone = true;
-        firstChunkPromiseResolve(false);
+        if (firstChunkPromiseResolve) {
+          firstChunkPromiseResolve(false);
+        }
       }
+
+      if (connectionId === activeConnectionId) {
+        activeConnectionId++;
+      }
+
+      try {
+        abortController.abort();
+      } catch {}
+
+      await safeCloseSocket(socket);
       if (activeTcpSocket === socket) {
         activeTcpSocket = null;
       }
@@ -904,6 +940,7 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
         writer.releaseLock();
       }
     } catch (err) {
+      log('message error:', err);
       await cleanup();
     }
   });
