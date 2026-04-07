@@ -510,16 +510,16 @@ function getHomePage() {
       <span id="typewriter"></span><span class="cursor">|</span>\
     </h1>\
     <p style="margin-bottom:18px;">输入 UUID 进入控制台。</p>\
-    <input type="password" id="pw" placeholder="请输入 UUID" autocomplete="off">\
-    <button class="main-btn" id="enterBtn">验证并进入</button>\
+    <input type="password" id="pw" placeholder="输入 UUID" autocomplete="off">\
+    <button class="main-btn" id="enterBtn">验证身份</button>\
     <div class="notice">提示：请输入完整 UUID，例如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</div>\
     <script>\
-      const txt = ["欢迎来到 Blackigma。", "安全边缘节点。", "VLESS 控制台。"];\
+      const txt = ["Here's Blackigma."， "Maybe Eternel?"， "Hello World!"];\
       let i = 0, j = 0, cur = "";\
       function type() {\
         if (j < txt[i].length) {\
           cur += txt[i][j++];\
-          document.getElementById("typewriter").innerText = cur;\
+          document.getElementById("typewriter")。innerText = cur;\
           setTimeout(type, 100);\
         } else {\
           setTimeout(erase, 1800);\
@@ -528,7 +528,7 @@ function getHomePage() {
       function erase() {\
         if (j > 0) {\
           cur = txt[i].substring(0, --j);\
-          document.getElementById("typewriter").innerText = cur;\
+          document.getElementById("typewriter")。innerText = cur;\
           setTimeout(erase, 45);\
         } else {\
           i = (i + 1) % txt.length;\
@@ -536,16 +536,16 @@ function getHomePage() {
         }\
       }\
       function go() {\
-        const value = document.getElementById("pw").value.trim();\
+        const value = document.getElementById("pw")。value.trim();\
         const ok = /^[0-9a-fA-F-]{36}$/.test(value);\
         if (!ok) {\
-          alert("UUID 格式看起来不正确");\
+          alert("UUID 格式错误");\
           return;\
         }\
         location.href = "/" + value;\
       }\
-      document.getElementById("enterBtn").addEventListener("click", go);\
-      document.getElementById("pw").addEventListener("keydown", function (e) {\
+      document.getElementById("enterBtn")。addEventListener("click"， go);\
+      document.getElementById("pw")。addEventListener("keydown"， function (e) {\
         if (e.key === "Enter") go();\
       });\
       type();\
@@ -559,7 +559,7 @@ function getDashboard(uuid, domain) {
   var presets = SERVER_PRESETS.map(function (item) {
     return {
       name: item.name,
-      host: item.host === '__WORKER_DOMAIN__' ? domain : item.host
+      host: item。host === '__WORKER_DOMAIN__' ? domain : item.host
     };
   });
 
@@ -883,7 +883,7 @@ async function handleVLESSSession(webSocket, expectedUUID, smartProxyList) {
       }
 
       try {
-        abortController.abort();
+        abortController。abort();
       } catch (e2) {}
 
       await safeCloseSocket(socket);
