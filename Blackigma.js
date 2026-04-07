@@ -612,30 +612,31 @@ function getDashboard(uuid, domain) {
       const uuid = ${JSON.stringify(uuid)};
       const workerDomain = ${JSON.stringify(domain)};
 
-      function buildLink(serverHost) {
-        return \`vless://\${uuid}@\${serverHost}:443?encryption=none&security=tls&sni=\${workerDomain}&type=ws&host=\${workerDomain}&path=%2F&fp=chrome&ech=1#CF-VLESS-Node\`;
-      }
+      function buildVlessLink(uuid, serverHost, wsHost) {
+  return `vless://${uuid}@${serverHost}:443?encryption=none&security=tls&sni=${wsHost}&type=ws&host=${wsHost}&path=%2F&fp=chrome&ech=cloudflare-ech.com#CF-VLESS-Node`;
+}
 
-      function buildYaml(serverHost) {
-        return [
-          '- name: "CF-Worker-VLESS"',
-          '  type: vless',
-          '  server: ' + serverHost,
-          '  port: 443',
-          '  uuid: ' + uuid,
-          '  udp: true',
-          '  tls: true',
-          '  servername: ' + workerDomain,
-          '  client-fingerprint: chrome',
-          '  network: ws',
-          '  ech-opts:',
-          '    enable: true',
-          '  ws-opts:',
-          '    path: "/"',
-          '    headers:',
-          '      Host: ' + workerDomain
-        ].join('\\n');
-      }
+     function buildYamlConfig(uuid, serverHost, wsHost) {
+  return [
+    `- name: "CF-Worker-VLESS"`,
+    `  type: vless`,
+    `  server: ${serverHost}`,
+    `  port: 443`,
+    `  uuid: ${uuid}`,
+    `  udp: true`,
+    `  tls: true`,
+    `  servername: ${wsHost}`,
+    `  client-fingerprint: chrome`,
+    `  network: ws`,
+    `  ech-opts:`,
+    `    enable: true`,
+    `    query-server-name: cloudflare-ech.com`,
+    `  ws-opts:`,
+    `    path: "/"`,
+    `    headers:`,
+    `      Host: ${wsHost}`
+  ].join('\n');
+}
 
       function update(serverHost) {
         document.getElementById('v-link').value = buildLink(serverHost);
