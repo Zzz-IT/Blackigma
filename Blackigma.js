@@ -514,7 +514,7 @@ function getHomePage() {
     <button class="main-btn" id="enterBtn">验证并进入</button>\
     <div class="notice">提示：请输入完整 UUID，例如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</div>\
     <script>\
-      const txt = ["Here's Blackigma.", "Maybe Eternal?", "Hello World!"];\
+      const txt = ["Here\u0027s Blackigma.", "Maybe Eternal?", "Hello World!"];\
       let i = 0, j = 0, cur = "";\
       function type() {\
         if (j < txt[i].length) {\
