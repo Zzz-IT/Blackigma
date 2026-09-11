@@ -497,7 +497,7 @@ function tryParseVlessHeader(buffer, expectedUuidBytes) {
 }
 
 // ==============================================================================
-// [配置页与订阅路由]
+// [配置页生成]
 // ==============================================================================
 
 function buildClashYaml(uuid, host) {
@@ -539,14 +539,12 @@ function buildConfigPage(uuid, host) {
 <title>Blackigma Edge</title><style>
 body{background:#0b0f14;color:#ddd;font-family:sans-serif;padding:20px;max-width:800px;margin:auto;}
 textarea{width:100%;height:130px;background:#020617;color:#93c5fd;border:1px solid #334155;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;}
-.btn{display:inline-block;margin-top:6px;padding:6px 12px;background:#1e293b;color:#93c5fd;border:1px solid #334155;border-radius:4px;text-decoration:none;font-size:12px;}
-.btn:hover{background:#334155;color:#fff;}
 h3{margin-top:18px;font-size:14px;color:#94a3b8;}
 </style></head><body>
 <h2>Blackigma Edge Personal 10.3</h2>
 <h3>VLESS URI</h3><textarea readonly>${vlessUri}</textarea>
-<h3>Clash Meta YAML</h3><textarea readonly>${clashYaml}</textarea><br><a class="btn" href="/sub">下载 Clash 配置文件</a>
-<h3>Sing-box JSON</h3><textarea readonly>${singbox}</textarea><br><a class="btn" href="/json">下载 Sing-box 配置文件</a>
+<h3>Clash Meta YAML</h3><textarea readonly>${clashYaml}</textarea>
+<h3>Sing-box JSON</h3><textarea readonly>${singbox}</textarea>
 </body></html>`;
 }
 
@@ -560,37 +558,21 @@ export default {
     const upgrade = (request.headers.get('Upgrade') || '').toLowerCase();
 
     if (upgrade !== 'websocket') {
-      const path = url.pathname;
-      if (path === '/uuid' || path === '/uuid/') {
-        let uuid;
-        try { uuid = getConfiguredUuid(env); } catch (_) { uuid = CONFIG.DEFAULT_UUID; }
+      let uuid;
+      try { uuid = getConfiguredUuid(env) || CONFIG.DEFAULT_UUID; } catch (_) { uuid = CONFIG.DEFAULT_UUID; }
+
+      const reqPath = url.pathname.toLowerCase().replace(/\/+$/, '');
+      const targetPath = `/${uuid}`.toLowerCase();
+      const targetPathNoDash = `/${uuid.replace(/-/g, '')}`.toLowerCase();
+
+      // 仅当路径严格匹配实际 UUID（带横杠或不带横杠）时展示面板，其余路径一律返回 OK
+      if (reqPath === targetPath || reqPath === targetPathNoDash) {
         return new Response(buildConfigPage(uuid, url.host), {
           status: 200,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });
       }
-      if (path === '/sub' || path === '/sub/' || path === '/clash' || path === '/clash/') {
-        let uuid;
-        try { uuid = getConfiguredUuid(env); } catch (_) { uuid = CONFIG.DEFAULT_UUID; }
-        return new Response(buildClashYaml(uuid, url.host), {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/yaml; charset=utf-8',
-            'Content-Disposition': 'attachment; filename="blackigma.yaml"',
-          },
-        });
-      }
-      if (path === '/json' || path === '/json/') {
-        let uuid;
-        try { uuid = getConfiguredUuid(env); } catch (_) { uuid = CONFIG.DEFAULT_UUID; }
-        return new Response(buildSingboxJson(uuid, url.host), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Content-Disposition': 'attachment; filename="blackigma.json"',
-          },
-        });
-      }
+
       return new Response('OK', {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
